@@ -62,6 +62,7 @@ public class IdcDm {
         var chunksPerGetter = totalChunksCount / threadCount;
         for (int i = 0; i < threadCount; i++) {
             if (i == threadCount - 1) {
+                // TODO: maybe pad file with 0's to fit division by 4096 ?
                 chunksPerGetter += totalChunksCount % threadCount;
             }
             Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, chunkBaseIndex, currentByte, chunksPerGetter, CHUNK_SIZE));

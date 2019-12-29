@@ -5,7 +5,7 @@ import java.util.concurrent.BlockingQueue;
 
 public class FileWriter implements Runnable {
     private static String METADATA_FILE_BEFORE_RENAME_SUFFIX = "0x0213";
-    private static int SAVE_METADATA_CHUNKS_COUNT = 1024;
+//    private static int SAVE_METADATA_CHUNKS_COUNT = 1024;
 
     private BlockingQueue<ChunkData> blockingQueue;
     private boolean[] chunkBitMap;
@@ -23,16 +23,16 @@ public class FileWriter implements Runnable {
     @Override
     public void run() {
         try {
-            var chunksRead = 0;
+//            var chunksRead = 0;
             while (true) {
                 var chunk = this.blockingQueue.take();
-                chunksRead++;
+//                chunksRead++;
                 saveChunkToFile(chunk);
                 updateChunkMap(chunk);
-                var saveMetadataToDisc = chunksRead % SAVE_METADATA_CHUNKS_COUNT == SAVE_METADATA_CHUNKS_COUNT - 1;
-                if (saveMetadataToDisc) {
+//                var saveMetadataToDisc = chunksRead % SAVE_METADATA_CHUNKS_COUNT == SAVE_METADATA_CHUNKS_COUNT - 1;
+//                if (saveMetadataToDisc) {
                     saveChunkBitMap();
-                }
+//                }
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -58,6 +58,7 @@ public class FileWriter implements Runnable {
             //TODO close?
         }
     }
+
     private void updateChunkMap(ChunkData chunkData){
         this.chunkBitMap[chunkData.getChunkId()] = true;
     }

@@ -28,30 +28,36 @@ public class HttpRangeGetter implements Runnable {
         }
         int nextInt;
         byte nextByte;
-        var currentByte = startByte;
-        var currentIndex = 0;
+        long currentByte = startByte;
+        var bufferCurrentIndex = 0;
         var readBuffer = new byte[this.chunkSize];
         try {
             while ((nextInt = inputStream.read()) != -1) {
                 nextByte = (byte) nextInt;
-                if (currentIndex < readBuffer.length) {
-                    readBuffer[currentIndex] = nextByte;
-                    currentIndex++;
+                if (bufferCurrentIndex < readBuffer.length) {
+                    readBuffer[bufferCurrentIndex] = nextByte;
+                    bufferCurrentIndex++;
                 } else {
-//                    System.out.println(String.format("Downloaded %d to %d", currentByte, currentByte + currentIndex - 1));
-                    var chuckData = createChunkData(currentByte, currentIndex, this.chunkIndex, readBuffer);
+//                    System.out.println(String.format("Downloaded %d to %d", currentByte, currentByte + bufferCurrentIndex - 1));
+                    var chuckData = createChunkData(currentByte, bufferCurrentIndex, this.chunkIndex, readBuffer);
                     blockingQueue.put(chuckData);
-                    currentByte += currentIndex;
-                    currentIndex = 0;
+                    currentByte += bufferCurrentIndex;
+                    bufferCurrentIndex = 0;
+                    readBuffer[bufferCurrentIndex] = nextByte;
+                    bufferCurrentIndex++;
                     this.chunkIndex++;
                 }
             }
-            var leftOvers = currentIndex != 0;
+//            System.out.println(nextByteToWrite + currentAvailableIndex);
+//            System.out.println(getEndByte());
+            var leftOvers = currentByte + bufferCurrentIndex != getEndByte() + 1;
+//            System.out.println(this.chunkIndex);
             if (leftOvers) {
-                var chuckData = createChunkData(currentByte, currentIndex + 1, this.chunkIndex, readBuffer);
+                //TODO: check this for edge cases +-1
+                var chuckData = createChunkData(currentByte, bufferCurrentIndex, this.chunkIndex, readBuffer);
                 blockingQueue.put(chuckData);
-                currentByte += currentIndex + 1;
-                currentIndex = 0;
+                currentByte += bufferCurrentIndex;
+                bufferCurrentIndex = 0;
                 this.chunkIndex++;
             }
 
@@ -65,11 +71,12 @@ public class HttpRangeGetter implements Runnable {
 
     private BufferedInputStream setupConnection() {
         try {
+            // NOTE: can request out of range and still be okay ! yay!
             var url = new URL(this.connectionString);
             var urlConnection = (HttpURLConnection) url.openConnection();
-            var endByte = this.startByte + this.numOfChunks * this.chunkSize - 1;
+            var endByte = getEndByte();
             urlConnection.setRequestProperty("Range", String.format("bytes=%d-%d", this.startByte, endByte));
-            System.out.println("Requesting " + this.startByte + " to " + endByte);
+            System.out.println("Requesting " + this.startByte + " to " +endByte);
             urlConnection.connect();
             return new BufferedInputStream(urlConnection.getInputStream());
         } catch (MalformedURLException malformedEx) {
@@ -84,5 +91,9 @@ public class HttpRangeGetter implements Runnable {
 
     private ChunkData createChunkData(long currentByte, int dataLength, int chunkId, byte[] buffer) {
         return new ChunkData(currentByte, dataLength, chunkId, buffer);
+    }
+
+    private long getEndByte() {
+        return this.startByte + this.numOfChunks * this.chunkSize - 1;
     }
 }
