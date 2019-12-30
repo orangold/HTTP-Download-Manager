@@ -28,10 +28,10 @@ public class FileWriter implements Runnable {
                 var chunk = this.blockingQueue.take();
 //                chunksRead++;
                 saveChunkToFile(chunk);
-                updateChunkMap(chunk);
+//                updateChunkMap(chunk);
 //                var saveMetadataToDisc = chunksRead % SAVE_METADATA_CHUNKS_COUNT == SAVE_METADATA_CHUNKS_COUNT - 1;
 //                if (saveMetadataToDisc) {
-                    saveChunkBitMap();
+//                    saveChunkBitMap();
 //                }
             }
         } catch (InterruptedException e) {

@@ -34,27 +34,27 @@ public class HttpRangeGetter implements Runnable {
         try {
             while ((nextInt = inputStream.read()) != -1) {
                 nextByte = (byte) nextInt;
-                if (bufferCurrentIndex < readBuffer.length) {
+                if (bufferCurrentIndex < readBuffer.length - 1) {
                     readBuffer[bufferCurrentIndex] = nextByte;
                     bufferCurrentIndex++;
                 } else {
 //                    System.out.println(String.format("Downloaded %d to %d", currentByte, currentByte + bufferCurrentIndex - 1));
-                    var chuckData = createChunkData(currentByte, bufferCurrentIndex, this.chunkIndex, readBuffer);
-                    blockingQueue.put(chuckData);
-                    currentByte += bufferCurrentIndex;
-                    bufferCurrentIndex = 0;
                     readBuffer[bufferCurrentIndex] = nextByte;
-                    bufferCurrentIndex++;
+                    var chuckData = createChunkData(currentByte, bufferCurrentIndex + 1, this.chunkIndex, readBuffer.clone());
+                    blockingQueue.put(chuckData);
+                    currentByte += bufferCurrentIndex + 1;
+                    bufferCurrentIndex = 0;
                     this.chunkIndex++;
                 }
             }
 //            System.out.println(nextByteToWrite + currentAvailableIndex);
 //            System.out.println(getEndByte());
-            var leftOvers = currentByte + bufferCurrentIndex != getEndByte() + 1;
+//            var leftOvers = currentByte + bufferCurrentIndex != getEndByte() + 1;
+            var leftOvers = bufferCurrentIndex != 0;
 //            System.out.println(this.chunkIndex);
             if (leftOvers) {
                 //TODO: check this for edge cases +-1
-                var chuckData = createChunkData(currentByte, bufferCurrentIndex, this.chunkIndex, readBuffer);
+                var chuckData = createChunkData(currentByte, bufferCurrentIndex, this.chunkIndex, readBuffer.clone());
                 blockingQueue.put(chuckData);
                 currentByte += bufferCurrentIndex;
                 bufferCurrentIndex = 0;
