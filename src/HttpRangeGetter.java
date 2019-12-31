@@ -9,14 +9,15 @@ import java.util.concurrent.BlockingQueue;
 public class HttpRangeGetter implements Runnable {
     private String connectionString;
     private BlockingQueue<FileWriterChunkData> blockingQueue;
-    private int chunkSize;
+    private int chunkSize, Id;
     private Queue<RangeGetterChunksData> rangeToDownloadQueue;
 
-    public HttpRangeGetter(String connectionString, BlockingQueue<FileWriterChunkData> blockingQueue, int chunkSize, Queue<RangeGetterChunksData> rangeGetterChunksData) {
+    public HttpRangeGetter(String connectionString, BlockingQueue<FileWriterChunkData> blockingQueue, int chunkSize, int getterId, Queue<RangeGetterChunksData> rangeGetterChunksData) {
         this.connectionString = connectionString;
         this.blockingQueue = blockingQueue;
         this.rangeToDownloadQueue = rangeGetterChunksData;
         this.chunkSize = chunkSize;
+        this.Id = getterId;
     }
 
     @Override
@@ -57,8 +58,9 @@ public class HttpRangeGetter implements Runnable {
                     bufferCurrentIndex = 0;
                     currentChunkIndex++;
                 }
-
-                System.out.println("Done!");
+//                [15] Finished downloading
+                System.out.printf("[%d] Finished downloading\n", this.Id);
+//                System.out.println("Done!");
             } catch (IOException ioEx) {
                 // TODO
             } catch (InterruptedException e) {
@@ -74,7 +76,11 @@ public class HttpRangeGetter implements Runnable {
             var urlConnection = (HttpURLConnection) url.openConnection();
             var endByte = rangeGetterChunksData.getStartByte() + rangeGetterChunksData.getNumOfChunks() * this.chunkSize - 1;
             urlConnection.setRequestProperty("Range", String.format("bytes=%d-%d", rangeGetterChunksData.getStartByte(), endByte));
-            System.out.println("Requesting " + rangeGetterChunksData.getStartByte() + " to " + endByte);
+//            [13] Start downloading range (0 - 240123903) from:
+//            http://centos.activecloud.co.il/6.10/isos/x86_64/CentOS-6.10-x86_64-netinstall.iso
+//            System.out.println("Requesting " + rangeGetterChunksData.getStartByte() + " to " + endByte);
+            System.out.printf("[%d] Start downloading range (%d - %d) from:\n%s\n",
+                    this.Id, rangeGetterChunksData.getStartByte(), endByte, this.connectionString);
             urlConnection.connect();
             return new BufferedInputStream(urlConnection.getInputStream());
         } catch (MalformedURLException malformedEx) {

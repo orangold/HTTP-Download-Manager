@@ -11,9 +11,10 @@ public class IdcDm {
     private static int BLOCKING_QUEUE_SIZE = 8192;
     private static String META_DATA_FILE_NAME_SUFFIX = ".chunkmap";
     private static String META_DATA_TEMP_FILE_SUFFIX = "0x0213";
+    private static int RANGE_GETTERS_INITITAL_ID = 13; // As mentioned in the Lab example.
 
     //TODO: what if one thread finishes before the rest and then we stop ?
-
+    //TODO: test mirroring and url file
     public static void main(String[] args) {
         if (args.length == 0) {
             System.err.println("usage: java IdcDm URL|URL-LIST-FILE [MAX-CONCURRENT-CONNECTIONS]");
@@ -39,7 +40,7 @@ public class IdcDm {
         if (fileSize == -1) {
             return;
         }
-        System.out.println("File size " + fileSize);
+//        System.out.println("File size " + fileSize);
         var threadCount = 1;
         if (args.length > 1) {
             threadCount = Integer.parseInt(args[1]);
@@ -58,22 +59,15 @@ public class IdcDm {
         var existingChunkMap = doesChunkMapExist(metaDataFileName);
         var chunkBitMap = existingChunkMap ? getChunkMapFromFile(fileSize, metaDataFileName) : createNewChunkMap(fileSize);
         var existingChunksDataList = existingChunkMap ? generateRangeGettersList(chunkBitMap) : null;
-        var totalChunksCount = existingChunkMap ? getChunksCountNeeded(existingChunksDataList) : (int) Math.ceil((double) fileSize / CHUNK_SIZE);
-
-        startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName, metaDataFileName, metaDataTempFileName, totalChunksCount);
+        var totalChunks = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
+        var totalChunksToDownload = existingChunkMap ? getChunksCountNeeded(existingChunksDataList) : totalChunks;
+        startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName, metaDataFileName, metaDataTempFileName, totalChunks, totalChunksToDownload);
         startRangeGetters(fileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
-    }
-
-    private static int getChunksCountNeeded(ArrayList<RangeGetterChunksData> existingChunksDataList) {
-        var count = 0;
-        for (int i = 0; i < existingChunksDataList.size(); i++) {
-            count += existingChunksDataList.get(i).getNumOfChunks();
-        }
-        return count;
     }
 
     private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
         if (existingChunksDataList == null || existingChunksDataList.size() == 0) {
+            printDownloading(threadCount);
             long currentByte = 0;
             var chunkBaseIndex = 0;
             var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
@@ -85,7 +79,7 @@ public class IdcDm {
                 var rangeGetterChunkData = new RangeGetterChunksData(currentByte, chunksPerGetter, chunkBaseIndex);
                 var singleRangeQueue = new ArrayDeque<RangeGetterChunksData>();
                 singleRangeQueue.add(rangeGetterChunkData);
-                var rangeGetterThread = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, singleRangeQueue));
+                var rangeGetterThread = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, RANGE_GETTERS_INITITAL_ID + i, singleRangeQueue));
                 rangeGetterThread.start();
                 currentByte += chunksPerGetter * CHUNK_SIZE;
                 chunkBaseIndex += chunksPerGetter;
@@ -97,14 +91,19 @@ public class IdcDm {
             var noNeedForQueuing = threadCount >= existingChunksDataList.size();
             if (noNeedForQueuing) {
                 threadCount = existingChunksDataList.size();
+                printDownloading(threadCount);
                 for (int i = 0; i < threadCount; i++) {
                     var rangeGetterChunkData = existingChunksDataList.get(i);
                     var singleRangeQueue = new ArrayDeque<RangeGetterChunksData>();
                     singleRangeQueue.add(rangeGetterChunkData);
-                    Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, singleRangeQueue));
+                    Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, RANGE_GETTERS_INITITAL_ID + i, singleRangeQueue));
                     rangeGetter.start();
+                    if (urlsList != null) {
+                        currentURL = getRandomURL(urlsList);
+                    }
                 }
             } else {
+                printDownloading(threadCount);
                 var chunkBatchesPerThread = existingChunksDataList.size() / threadCount;
                 var remainderBatchesToQueue = existingChunksDataList.size() % threadCount;
                 var additionalPerRangeGetter = (int) Math.ceil((double) remainderBatchesToQueue / threadCount);
@@ -117,15 +116,18 @@ public class IdcDm {
                         rangesQueue.add(existingChunksDataList.remove(0));
                         remainderBatchesToQueue--;
                     }
-                    Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, rangesQueue));
+                    Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, RANGE_GETTERS_INITITAL_ID + i, rangesQueue));
                     rangeGetter.start();
+                    if (urlsList != null) {
+                        currentURL = getRandomURL(urlsList);
+                    }
                 }
             }
         }
     }
 
-    private static void startFileWriter(BlockingQueue<FileWriterChunkData> queue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String filename, String metaDataFileName, String metaDataTempFileName, int totalChunksCount) {
-        Thread fileWriter = new Thread(new FileWriter(queue, randomAccessFile, chunkBitMap, filename, metaDataFileName,metaDataTempFileName, totalChunksCount));
+    private static void startFileWriter(BlockingQueue<FileWriterChunkData> queue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String filename, String metaDataFileName, String metaDataTempFileName, int totalChunks, int totalChunksToDownload) {
+        Thread fileWriter = new Thread(new FileWriter(queue, randomAccessFile, chunkBitMap, filename, metaDataFileName, metaDataTempFileName, totalChunks, totalChunksToDownload));
         fileWriter.start();
     }
 
@@ -137,6 +139,22 @@ public class IdcDm {
             //TODO
         }
         return null;
+    }
+
+    private static void printDownloading(int threadCount) {
+        if (threadCount == 1) {
+            System.out.println("Downloading...");
+            return;
+        }
+        System.out.println("Downloading using " + threadCount + " connections...");
+    }
+
+    private static int getChunksCountNeeded(ArrayList<RangeGetterChunksData> existingChunksDataList) {
+        var count = 0;
+        for (int i = 0; i < existingChunksDataList.size(); i++) {
+            count += existingChunksDataList.get(i).getNumOfChunks();
+        }
+        return count;
     }
 
     // Attempts to read from existing file, if not creates a new one.
@@ -161,12 +179,12 @@ public class IdcDm {
         return chunkMap;
     }
 
-    private static boolean[] createNewChunkMap(int fileSize){
+    private static boolean[] createNewChunkMap(int fileSize) {
         var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
         return new boolean[totalChunksCount];
     }
 
-    private static boolean doesChunkMapExist(String metaDataFileName){
+    private static boolean doesChunkMapExist(String metaDataFileName) {
         var metaDataFile = new File(metaDataFileName);
         return metaDataFile.exists();
     }
