@@ -1,9 +1,9 @@
-public class ChunkData {
+public class FileWriterChunkData {
     private int length, chunkId;
     private long startByte;
     private byte[] data;
 
-    public ChunkData(long startByte, int length, int chunkId, byte[] data) {
+    public FileWriterChunkData(long startByte, int length, int chunkId, byte[] data) {
         this.startByte = startByte;
         this.length = length;
         this.chunkId = chunkId;

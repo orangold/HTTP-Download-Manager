@@ -6,13 +6,13 @@ import java.util.concurrent.BlockingQueue;
 public class FileWriter implements Runnable {
     private static int SAVE_METADATA_PER_CHUNKS_COUNT = 64;
 
-    private BlockingQueue<ChunkData> blockingQueue;
+    private BlockingQueue<FileWriterChunkData> blockingQueue;
     private boolean[] chunkBitMap;
     private String fileName, metaDataFileName, metaDataTempFileName;
     private RandomAccessFile randomAccessFile;
     private int totalChunksNeededDownload;
 
-    public FileWriter(BlockingQueue<ChunkData> blockingQueue,RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String fileName, String metaDataFileName, String metaDataTempFileName, int totalChunksNeededDownload) {
+    public FileWriter(BlockingQueue<FileWriterChunkData> blockingQueue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String fileName, String metaDataFileName, String metaDataTempFileName, int totalChunksNeededDownload) {
         this.blockingQueue = blockingQueue;
         this.randomAccessFile = randomAccessFile;
         this.chunkBitMap = chunkBitMap;
@@ -65,14 +65,14 @@ public class FileWriter implements Runnable {
         }
     }
 
-    private void updateChunkMap(ChunkData chunkData){
-        this.chunkBitMap[chunkData.getChunkId()] = true;
+    private void updateChunkMap(FileWriterChunkData fileWriterChunkData){
+        this.chunkBitMap[fileWriterChunkData.getChunkId()] = true;
     }
 
-    private void saveChunkToChunkMap(ChunkData chunkData){
+    private void saveChunkToChunkMap(FileWriterChunkData fileWriterChunkData){
         try {
-            this.randomAccessFile.seek(chunkData.getStartByte());
-            this.randomAccessFile.write(chunkData.getData(),0,chunkData.getLength());
+            this.randomAccessFile.seek(fileWriterChunkData.getStartByte());
+            this.randomAccessFile.write(fileWriterChunkData.getData(),0, fileWriterChunkData.getLength());
 //            System.out.println("saved chunk id "+chunkData.getChunkId());
         } catch (IOException e) {
             e.printStackTrace();

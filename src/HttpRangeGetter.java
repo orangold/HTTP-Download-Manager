@@ -7,11 +7,11 @@ import java.util.concurrent.BlockingQueue;
 
 public class HttpRangeGetter implements Runnable {
     private String connectionString;
-    private BlockingQueue<ChunkData> blockingQueue;
+    private BlockingQueue<FileWriterChunkData> blockingQueue;
     private int numOfChunks, chunkSize, chunkIndex;
     private long startByte;
 
-    public HttpRangeGetter(String connectionString, BlockingQueue<ChunkData> blockingQueue, int chunkIndex, long startByte, int numOfChunks, int chunkSize) {
+    public HttpRangeGetter(String connectionString, BlockingQueue<FileWriterChunkData> blockingQueue, int chunkIndex, long startByte, int numOfChunks, int chunkSize) {
         this.connectionString = connectionString;
         this.blockingQueue = blockingQueue;
         this.startByte = startByte;
@@ -84,8 +84,8 @@ public class HttpRangeGetter implements Runnable {
         return null;
     }
 
-    private ChunkData createChunkData(long currentByte, int dataLength, int chunkId, byte[] buffer) {
-        return new ChunkData(currentByte, dataLength, chunkId, buffer);
+    private FileWriterChunkData createChunkData(long currentByte, int dataLength, int chunkId, byte[] buffer) {
+        return new FileWriterChunkData(currentByte, dataLength, chunkId, buffer);
     }
 
     private long getEndByte() {
