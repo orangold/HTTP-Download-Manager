@@ -4,22 +4,22 @@ import java.nio.file.StandardCopyOption;
 import java.util.concurrent.BlockingQueue;
 
 public class FileWriter implements Runnable {
-    private static int SAVE_METADATA_PER_CHUNKS_COUNT = 128;
+    private static int SAVE_METADATA_PER_CHUNKS_COUNT = 64;
 
     private BlockingQueue<ChunkData> blockingQueue;
     private boolean[] chunkBitMap;
     private String fileName, metaDataFileName, metaDataTempFileName;
     private RandomAccessFile randomAccessFile;
-    private int totalChunks;
+    private int totalChunksNeededDownload;
 
-    public FileWriter(BlockingQueue<ChunkData> blockingQueue,RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String fileName, String metaDataFileName, String metaDataTempFileName, int totalChunks) {
+    public FileWriter(BlockingQueue<ChunkData> blockingQueue,RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String fileName, String metaDataFileName, String metaDataTempFileName, int totalChunksNeededDownload) {
         this.blockingQueue = blockingQueue;
         this.randomAccessFile = randomAccessFile;
         this.chunkBitMap = chunkBitMap;
         this.fileName = fileName;
         this.metaDataFileName = metaDataFileName;
         this.metaDataTempFileName = metaDataTempFileName;
-        this.totalChunks = totalChunks;
+        this.totalChunksNeededDownload = totalChunksNeededDownload;
     }
 
     @Override
@@ -29,13 +29,13 @@ public class FileWriter implements Runnable {
             while (true) {
                 var chunk = this.blockingQueue.take();
                 chunksRead++;
-                saveChunkToFile(chunk);
+                saveChunkToChunkMap(chunk);
                 updateChunkMap(chunk);
                 var saveMetadataToDisc = chunksRead % SAVE_METADATA_PER_CHUNKS_COUNT == SAVE_METADATA_PER_CHUNKS_COUNT - 1;
                 if (saveMetadataToDisc) {
-                    saveChunkBitMap();
+                    saveChunkBitMapToFile();
                 }
-                if (chunksRead == this.totalChunks) {
+                if (chunksRead == this.totalChunksNeededDownload) {
                     deleteTempFiles();
                     break;
                 }
@@ -46,9 +46,10 @@ public class FileWriter implements Runnable {
         }
     }
 
-    private void saveChunkBitMap() {
+    private void saveChunkBitMapToFile() {
         //TODO: try with resources?
         try {
+//            System.out.println("Saving chunk map..");
             var metaDataFile = new File(this.metaDataFileName);
             var tempMetaDataFile = new File(this.metaDataTempFileName);
             var fileOutputStream = new FileOutputStream(tempMetaDataFile);
@@ -68,15 +69,15 @@ public class FileWriter implements Runnable {
         this.chunkBitMap[chunkData.getChunkId()] = true;
     }
 
-    private void saveChunkToFile(ChunkData chunkData){
+    private void saveChunkToChunkMap(ChunkData chunkData){
         try {
             this.randomAccessFile.seek(chunkData.getStartByte());
             this.randomAccessFile.write(chunkData.getData(),0,chunkData.getLength());
+//            System.out.println("saved chunk id "+chunkData.getChunkId());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
 
     private void deleteTempFiles() {
         System.out.println("Deleting metadata..");

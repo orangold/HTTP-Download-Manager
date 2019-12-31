@@ -43,7 +43,6 @@ public class IdcDm {
         if (args.length > 1) {
             threadCount = Integer.parseInt(args[1]);
         }
-        var chunkBitMap = generateChunkMap(fileSize);
         var fileName = getFileName(currentURL);
         if (fileName == null) {
             return;
@@ -53,29 +52,50 @@ public class IdcDm {
             return;
         }
 
-        var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
-        var metaDataFileName= fileName + META_DATA_FILE_NAME_SUFFIX;
+        var metaDataFileName = fileName + META_DATA_FILE_NAME_SUFFIX;
         var metaDataTempFileName = metaDataFileName + META_DATA_TEMP_FILE_SUFFIX;
+        var existingChunkMap = doesChunkMapExist(metaDataFileName);
+        var chunkBitMap = existingChunkMap ? getChunkMapFromFile(fileSize, metaDataFileName) : createNewChunkMap(fileSize);
+        var existingChunksDataList = existingChunkMap ? generateRangeGettersList(chunkBitMap) : null;
+        var totalChunksCount = existingChunkMap ? getChunksCountNeeded(existingChunksDataList) : (int) Math.ceil((double) fileSize / CHUNK_SIZE);
 
-        startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName,metaDataFileName,metaDataTempFileName, totalChunksCount);
-        startRangeGetters(fileSize, threadCount, currentURL, urlsList, blockingQueue);
+        startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName, metaDataFileName, metaDataTempFileName, totalChunksCount);
+        startRangeGetters(fileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
     }
 
-    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue) {
-        long currentByte = 0;
-        var chunkBaseIndex = 0;
-        var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
-        var chunksPerGetter = totalChunksCount / threadCount;
-        for (int i = 0; i < threadCount; i++) {
-            if (i == threadCount - 1) {
-                chunksPerGetter += totalChunksCount % threadCount;
+    private static int getChunksCountNeeded(ArrayList<RangeGetterChunksData> existingChunksDataList) {
+        int count = 0;
+        for (int i = 0; i < existingChunksDataList.size(); i++) {
+            count += existingChunksDataList.get(i).getNumOfChunks();
+        }
+        return count;
+    }
+
+    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
+        if(existingChunksDataList == null || existingChunksDataList.size() == 0) {
+            long currentByte = 0;
+            var chunkBaseIndex = 0;
+            var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
+            var chunksPerGetter = totalChunksCount / threadCount;
+            for (int i = 0; i < threadCount; i++) {
+                if (i == threadCount - 1) {
+                    chunksPerGetter += totalChunksCount % threadCount;
+                }
+                Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, chunkBaseIndex, currentByte, chunksPerGetter, CHUNK_SIZE));
+                rangeGetter.start();
+                currentByte += chunksPerGetter * CHUNK_SIZE;
+                chunkBaseIndex += chunksPerGetter;
+                if (urlsList != null) {
+                    currentURL = getRandomURL(urlsList);
+                }
             }
-            Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, chunkBaseIndex, currentByte, chunksPerGetter, CHUNK_SIZE));
-            rangeGetter.start();
-            currentByte += chunksPerGetter * CHUNK_SIZE;
-            chunkBaseIndex += chunksPerGetter;
-            if (urlsList != null) {
-                currentURL = getRandomURL(urlsList);
+        }
+        else {
+//            var actualThreadCount = Math.min(threadCount, existingChunksDataList.size());
+            for (int i = 0; i < threadCount; i++) {
+                var getterChunkData = existingChunksDataList.get(i);
+                Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, getterChunkData.getStartChunkId(), getterChunkData.getStartByte(), getterChunkData.getNumOfChunks(), CHUNK_SIZE));
+                rangeGetter.start();
             }
         }
     }
@@ -95,10 +115,62 @@ public class IdcDm {
         return null;
     }
 
-    private static boolean[] generateChunkMap(int fileSize) {
-        //TODO: check for existing file
+    // Attempts to read from existing file, if not creates a new one.
+    private static boolean[] getChunkMapFromFile(int fileSize, String metaDataFileName) {
+        var metaDataFile = new File(metaDataFileName);
+        var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
+        var chunkMap = new boolean[totalChunksCount];
+        try {
+            var fileInputStream = new FileInputStream(metaDataFile);
+            var objectInputStream = new ObjectInputStream(fileInputStream);
+            chunkMap = (boolean[]) objectInputStream.readObject();
+        } catch (FileNotFoundException e) {
+            //TODO, PRINT TO USER
+            e.printStackTrace();
+            return chunkMap;
+        } catch (IOException e) {
+            //TODO, PRINT TO USER
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return chunkMap;
+    }
+
+    private static boolean[] createNewChunkMap(int fileSize){
         var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
         return new boolean[totalChunksCount];
+    }
+
+    private static boolean doesChunkMapExist(String metaDataFileName){
+        var metaDataFile = new File(metaDataFileName);
+        return metaDataFile.exists();
+    }
+
+    private static ArrayList<RangeGetterChunksData> generateRangeGettersList(boolean[] chunkMap) {
+        var list = new ArrayList<RangeGetterChunksData>();
+        var currentSequentialCount = 0;
+        var currentStartChunkId = 0;
+        for (int i = 0; i < chunkMap.length; i++) {
+            if (chunkMap[i]) {
+                if (currentSequentialCount > 0) {
+                    var rangeGetterChunkData = new RangeGetterChunksData(currentStartChunkId * CHUNK_SIZE, currentSequentialCount, currentStartChunkId);
+                    list.add(rangeGetterChunkData);
+                    currentSequentialCount = 0;
+                }
+            } else {
+                if (currentSequentialCount == 0) {
+                    currentStartChunkId = i;
+                }
+                currentSequentialCount++;
+            }
+        }
+        var reachedEndWithLeftOvers = currentSequentialCount != 0;
+        if (reachedEndWithLeftOvers) {
+            var rangeGetterChunkData = new RangeGetterChunksData(currentStartChunkId * CHUNK_SIZE, currentSequentialCount, currentStartChunkId);
+            list.add(rangeGetterChunkData);
+        }
+        return list;
     }
 
 
