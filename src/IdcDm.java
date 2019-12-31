@@ -2,8 +2,7 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -12,6 +11,8 @@ public class IdcDm {
     private static int BLOCKING_QUEUE_SIZE = 8192;
     private static String META_DATA_FILE_NAME_SUFFIX = ".chunkmap";
     private static String META_DATA_TEMP_FILE_SUFFIX = "0x0213";
+
+    //TODO: what if one thread finishes before the rest and then we stop ?
 
     public static void main(String[] args) {
         if (args.length == 0) {
@@ -63,7 +64,7 @@ public class IdcDm {
         startRangeGetters(fileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
     }
 
-    private static int getChunksCountNeeded(ArrayList<RangeGetterChunkData> existingChunksDataList) {
+    private static int getChunksCountNeeded(ArrayList<RangeGetterChunksData> existingChunksDataList) {
         var count = 0;
         for (int i = 0; i < existingChunksDataList.size(); i++) {
             count += existingChunksDataList.get(i).getNumOfChunks();
@@ -71,8 +72,8 @@ public class IdcDm {
         return count;
     }
 
-    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue, ArrayList<RangeGetterChunkData> existingChunksDataList) {
-        if(existingChunksDataList == null || existingChunksDataList.size() == 0) {
+    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
+        if (existingChunksDataList == null || existingChunksDataList.size() == 0) {
             long currentByte = 0;
             var chunkBaseIndex = 0;
             var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
@@ -81,21 +82,44 @@ public class IdcDm {
                 if (i == threadCount - 1) {
                     chunksPerGetter += totalChunksCount % threadCount;
                 }
-                Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, chunkBaseIndex, currentByte, chunksPerGetter, CHUNK_SIZE));
-                rangeGetter.start();
+                var rangeGetterChunkData = new RangeGetterChunksData(currentByte, chunksPerGetter, chunkBaseIndex);
+                var singleRangeQueue = new ArrayDeque<RangeGetterChunksData>();
+                singleRangeQueue.add(rangeGetterChunkData);
+                var rangeGetterThread = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, singleRangeQueue));
+                rangeGetterThread.start();
                 currentByte += chunksPerGetter * CHUNK_SIZE;
                 chunkBaseIndex += chunksPerGetter;
                 if (urlsList != null) {
                     currentURL = getRandomURL(urlsList);
                 }
             }
-        }
-        else {
-//            var actualThreadCount = Math.min(threadCount, existingChunksDataList.size());
-            for (int i = 0; i < threadCount; i++) {
-                var getterChunkData = existingChunksDataList.get(i);
-                Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, getterChunkData.getStartChunkId(), getterChunkData.getStartByte(), getterChunkData.getNumOfChunks(), CHUNK_SIZE));
-                rangeGetter.start();
+        } else {
+            var noNeedForQueuing = threadCount >= existingChunksDataList.size();
+            if (noNeedForQueuing) {
+                threadCount = existingChunksDataList.size();
+                for (int i = 0; i < threadCount; i++) {
+                    var rangeGetterChunkData = existingChunksDataList.get(i);
+                    var singleRangeQueue = new ArrayDeque<RangeGetterChunksData>();
+                    singleRangeQueue.add(rangeGetterChunkData);
+                    Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, singleRangeQueue));
+                    rangeGetter.start();
+                }
+            } else {
+                var chunkBatchesPerThread = existingChunksDataList.size() / threadCount;
+                var remainderBatchesToQueue = existingChunksDataList.size() % threadCount;
+                var additionalPerRangeGetter = (int) Math.ceil((double) remainderBatchesToQueue / threadCount);
+                for (int i = 0; i < threadCount; i++) {
+                    var rangesQueue = new ArrayDeque<RangeGetterChunksData>();
+                    for (int j = 0; j < chunkBatchesPerThread; j++) {
+                        rangesQueue.add(existingChunksDataList.remove(0));
+                    }
+                    for (int j = 0; j < additionalPerRangeGetter && remainderBatchesToQueue > 0; j++) {
+                        rangesQueue.add(existingChunksDataList.remove(0));
+                        remainderBatchesToQueue--;
+                    }
+                    Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, CHUNK_SIZE, rangesQueue));
+                    rangeGetter.start();
+                }
             }
         }
     }
@@ -147,14 +171,14 @@ public class IdcDm {
         return metaDataFile.exists();
     }
 
-    private static ArrayList<RangeGetterChunkData> generateRangeGettersList(boolean[] chunkMap) {
-        var list = new ArrayList<RangeGetterChunkData>();
+    private static ArrayList<RangeGetterChunksData> generateRangeGettersList(boolean[] chunkMap) {
+        var list = new ArrayList<RangeGetterChunksData>();
         var currentSequentialCount = 0;
         var currentStartChunkId = 0;
         for (int i = 0; i < chunkMap.length; i++) {
             if (chunkMap[i]) {
                 if (currentSequentialCount > 0) {
-                    var rangeGetterChunkData = new RangeGetterChunkData(currentStartChunkId * CHUNK_SIZE, currentSequentialCount, currentStartChunkId);
+                    var rangeGetterChunkData = new RangeGetterChunksData(currentStartChunkId * CHUNK_SIZE, currentSequentialCount, currentStartChunkId);
                     list.add(rangeGetterChunkData);
                     currentSequentialCount = 0;
                 }
@@ -167,7 +191,7 @@ public class IdcDm {
         }
         var reachedEndWithLeftOvers = currentSequentialCount != 0;
         if (reachedEndWithLeftOvers) {
-            var rangeGetterChunkData = new RangeGetterChunkData(currentStartChunkId * CHUNK_SIZE, currentSequentialCount, currentStartChunkId);
+            var rangeGetterChunkData = new RangeGetterChunksData(currentStartChunkId * CHUNK_SIZE, currentSequentialCount, currentStartChunkId);
             list.add(rangeGetterChunkData);
         }
         return list;

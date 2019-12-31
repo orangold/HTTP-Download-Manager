@@ -4,7 +4,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.concurrent.BlockingQueue;
 
 public class FileWriter implements Runnable {
-    private static int SAVE_METADATA_PER_CHUNKS_COUNT = 64;
+    private static int SAVE_METADATA_PER_CHUNKS_COUNT = 32;
 
     private BlockingQueue<FileWriterChunkData> blockingQueue;
     private boolean[] chunkBitMap;

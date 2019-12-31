@@ -1,8 +1,8 @@
-public class RangeGetterChunkData {
+public class RangeGetterChunksData {
     private long startByte;
     private int numOfChunks, startChunkId;
 
-    public RangeGetterChunkData(long startByte, int numOfChunks, int startChunkId) {
+    public RangeGetterChunksData(long startByte, int numOfChunks, int startChunkId) {
         this.startByte = startByte;
         this.numOfChunks = numOfChunks;
         this.startChunkId = startChunkId;
