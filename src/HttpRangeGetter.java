@@ -47,13 +47,8 @@ public class HttpRangeGetter implements Runnable {
                     this.chunkIndex++;
                 }
             }
-//            System.out.println(nextByteToWrite + currentAvailableIndex);
-//            System.out.println(getEndByte());
-//            var leftOvers = currentByte + bufferCurrentIndex != getEndByte() + 1;
             var leftOvers = bufferCurrentIndex != 0;
-//            System.out.println(this.chunkIndex);
             if (leftOvers) {
-                //TODO: check this for edge cases +-1
                 var chuckData = createChunkData(currentByte, bufferCurrentIndex, this.chunkIndex, readBuffer.clone());
                 blockingQueue.put(chuckData);
                 currentByte += bufferCurrentIndex;

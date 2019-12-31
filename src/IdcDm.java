@@ -11,6 +11,7 @@ public class IdcDm {
     private static int CHUNK_SIZE = 4096;
     private static int BLOCKING_QUEUE_SIZE = 8192;
     private static String META_DATA_FILE_NAME_SUFFIX = ".chunkmap";
+    private static String META_DATA_TEMP_FILE_SUFFIX = "0x0213";
 
     public static void main(String[] args) {
         if (args.length == 0) {
@@ -51,7 +52,12 @@ public class IdcDm {
         if (randomAccessFile == null) {
             return;
         }
-        startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName);
+
+        var totalChunksCount = (int) Math.ceil((double) fileSize / CHUNK_SIZE);
+        var metaDataFileName= fileName + META_DATA_FILE_NAME_SUFFIX;
+        var metaDataTempFileName = metaDataFileName + META_DATA_TEMP_FILE_SUFFIX;
+
+        startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName,metaDataFileName,metaDataTempFileName, totalChunksCount);
         startRangeGetters(fileSize, threadCount, currentURL, urlsList, blockingQueue);
     }
 
@@ -62,7 +68,6 @@ public class IdcDm {
         var chunksPerGetter = totalChunksCount / threadCount;
         for (int i = 0; i < threadCount; i++) {
             if (i == threadCount - 1) {
-                // TODO: maybe pad file with 0's to fit division by 4096 ?
                 chunksPerGetter += totalChunksCount % threadCount;
             }
             Thread rangeGetter = new Thread(new HttpRangeGetter(currentURL, blockingQueue, chunkBaseIndex, currentByte, chunksPerGetter, CHUNK_SIZE));
@@ -75,8 +80,8 @@ public class IdcDm {
         }
     }
 
-    private static void startFileWriter(BlockingQueue<ChunkData> queue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String filename) {
-        Thread fileWriter = new Thread(new FileWriter(queue, randomAccessFile, chunkBitMap, filename, META_DATA_FILE_NAME_SUFFIX));
+    private static void startFileWriter(BlockingQueue<ChunkData> queue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String filename, String metaDataFileName, String metaDataTempFileName, int totalChunksCount) {
+        Thread fileWriter = new Thread(new FileWriter(queue, randomAccessFile, chunkBitMap, filename, metaDataFileName,metaDataTempFileName, totalChunksCount));
         fileWriter.start();
     }
 
