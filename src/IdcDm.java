@@ -194,9 +194,13 @@ public class IdcDm {
             var fileInputStream = new FileInputStream(metaDataFile);
             var objectInputStream = new ObjectInputStream(fileInputStream);
             chunkMap = (boolean[]) objectInputStream.readObject();
-        } catch (Exception e) {
+        } catch (FileNotFoundException e) {
             Utils.printErrorMessage("Failed to fetch existing file data, restarting download..");
             return chunkMap;
+        } catch (IOException e) {
+            Utils.printErrorMessage("Failed to fetch existing file data, restarting download..");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
         }
         return chunkMap;
     }

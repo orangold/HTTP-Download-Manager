@@ -10,6 +10,10 @@ public class FileWriterChunkData {
         this.data = data;
     }
 
+    public FileWriterChunkData(){
+        new FileWriterChunkData(0,0,0,null);
+    }
+
     public long getStartByte() {
         return this.startByte;
     }
@@ -24,5 +28,9 @@ public class FileWriterChunkData {
 
     public byte[] getData() {
         return this.data;
+    }
+
+    public boolean isEmpty() {
+        return this.length == 0 && this.chunkId == 0 && this.startByte == 0 && this.data == null;
     }
 }

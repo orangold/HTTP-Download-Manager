@@ -5,5 +5,8 @@ public class Consts
     public static String META_DATA_FILE_NAME_SUFFIX = ".chunkmap";
     public static String META_DATA_TEMP_FILE_SUFFIX = "0x0213";
     public static int RANGE_GETTERS_INITITAL_ID = 13; // As mentioned in the Lab example.
+    public static int SETUP_CONNECTION_TIMEOUT_MSECONDS = 20000;
+    public static int READ_TIMEOUT_MSECONDS = 20000;
+    public static int MAX_CONNECTION_RETRIES = 3;
     public static int SAVE_METADATA_PER_CHUNKS_COUNT = 32;
 }

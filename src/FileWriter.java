@@ -28,9 +28,14 @@ public class FileWriter implements Runnable {
             var chunksRead = this.totalChunks - this.totalChunksNeededDownload;
             while (true) {
                 var chunk = this.blockingQueue.take();
+                var rangeGetterCrashed = chunk.isEmpty();
+                if (rangeGetterCrashed) {
+                    Utils.printErrorMessageWithFailure("One of the Downloaders crashed, terminating..");
+                    return;
+                }
                 chunksRead++;
                 printProgress(chunksRead);
-                saveChunkToChunkMap(chunk);
+                saveChunkToDownloadFile(chunk);
                 updateChunkMap(chunk);
                 var saveMetadataToDisc = chunksRead % Consts.SAVE_METADATA_PER_CHUNKS_COUNT == Consts.SAVE_METADATA_PER_CHUNKS_COUNT - 1;
                 if (saveMetadataToDisc) {
@@ -60,8 +65,10 @@ public class FileWriter implements Runnable {
         try (var fileOutputStream = new FileOutputStream(tempMetaDataFile);
              var objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
             objectOutputStream.writeObject(this.chunkBitMap);
-            Files.move(tempMetaDataFile.toPath(), metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            //TODO: is copy fine?
+            Files.copy(tempMetaDataFile.toPath(), metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
+            System.out.println(e.getMessage());
             Utils.printErrorMessage("Failed to save download metadata, retrying..");
         }
     }
@@ -75,7 +82,7 @@ public class FileWriter implements Runnable {
         this.chunkBitMap[fileWriterChunkData.getChunkId()] = true;
     }
 
-    private void saveChunkToChunkMap(FileWriterChunkData fileWriterChunkData) {
+    private void saveChunkToDownloadFile(FileWriterChunkData fileWriterChunkData) {
         try {
             this.randomAccessFile.seek(fileWriterChunkData.getStartByte());
             this.randomAccessFile.write(fileWriterChunkData.getData(), 0, fileWriterChunkData.getLength());

@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -59,7 +56,7 @@ public class Utils {
         } catch (MalformedURLException malformedEx) {
             printErrorMessageWithFailure("Failed to parse URL, please make sure the URL is in a correct format");
         } catch (IOException ioEx) {
-            printErrorMessageWithFailure("Failed to fetch file from URL, make sure the URL is correct");
+            printErrorMessageWithFailure("Failed to fetch file, please check your internet connection..");
         }
         return -1;
     }
@@ -72,6 +69,7 @@ public class Utils {
     public static void printErrorMessage(String message) {
         System.err.println(message);
     }
+
     public static void printErrorMessageWithFailure(String message){
         printErrorMessage(message);
         System.err.println("Download failed");
