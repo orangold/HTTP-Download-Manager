@@ -60,12 +60,12 @@ public class FileWriter implements Runnable {
     }
 
     private void saveChunkBitMapToFile() {
+        //TODO: maybe keep this open at all times, only close at the end..?
         var metaDataFile = new File(this.metaDataFileName);
         var tempMetaDataFile = new File(this.metaDataTempFileName);
         try (var fileOutputStream = new FileOutputStream(tempMetaDataFile);
              var objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
             objectOutputStream.writeObject(this.chunkBitMap);
-            //TODO: is copy fine?
             Files.copy(tempMetaDataFile.toPath(), metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             System.out.println(e.getMessage());
