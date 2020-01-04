@@ -4,8 +4,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.concurrent.BlockingQueue;
 
 public class FileWriter implements Runnable {
-    private static int SAVE_METADATA_PER_CHUNKS_COUNT = 32;
-
     private BlockingQueue<FileWriterChunkData> blockingQueue;
     private boolean[] chunkBitMap;
     private String fileName, metaDataFileName, metaDataTempFileName;
@@ -34,7 +32,7 @@ public class FileWriter implements Runnable {
                 printProgress(chunksRead);
                 saveChunkToChunkMap(chunk);
                 updateChunkMap(chunk);
-                var saveMetadataToDisc = chunksRead % SAVE_METADATA_PER_CHUNKS_COUNT == SAVE_METADATA_PER_CHUNKS_COUNT - 1;
+                var saveMetadataToDisc = chunksRead % Consts.SAVE_METADATA_PER_CHUNKS_COUNT == Consts.SAVE_METADATA_PER_CHUNKS_COUNT - 1;
                 if (saveMetadataToDisc) {
                     saveChunkBitMapToFile();
                 }
