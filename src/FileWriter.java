@@ -42,33 +42,27 @@ public class FileWriter implements Runnable {
                 }
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
-            //TODO
+            Utils.printErrorMessageWithFailure("Download writing interrupted, please restart download manager");
         }
     }
 
     private void printProgress(int chunksRead) {
-        var newProgress = (int)(100 * ((double)chunksRead / this.totalChunks));
-        if(newProgress != this.currentProgress){
-            System.out.println("Downloaded " +newProgress+"%");
-            this.currentProgress=newProgress;
+        var newProgress = (int) (100 * ((double) chunksRead / this.totalChunks));
+        if (newProgress != this.currentProgress) {
+            System.out.println("Downloaded " + newProgress + "%");
+            this.currentProgress = newProgress;
         }
     }
 
     private void saveChunkBitMapToFile() {
-        //TODO: try with resources?
-        try {
-            var metaDataFile = new File(this.metaDataFileName);
-            var tempMetaDataFile = new File(this.metaDataTempFileName);
-            var fileOutputStream = new FileOutputStream(tempMetaDataFile);
-            var objectOutputStream = new ObjectOutputStream(fileOutputStream);
+        var metaDataFile = new File(this.metaDataFileName);
+        var tempMetaDataFile = new File(this.metaDataTempFileName);
+        try (var fileOutputStream = new FileOutputStream(tempMetaDataFile);
+             var objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
             objectOutputStream.writeObject(this.chunkBitMap);
-            fileOutputStream.close();
-            objectOutputStream.close();
             Files.move(tempMetaDataFile.toPath(), metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
-            e.printStackTrace();
-            //TODO close?
+            Utils.printErrorMessage("Failed to save download metadata, retrying..");
         }
     }
 
@@ -85,7 +79,6 @@ public class FileWriter implements Runnable {
         try {
             this.randomAccessFile.seek(fileWriterChunkData.getStartByte());
             this.randomAccessFile.write(fileWriterChunkData.getData(), 0, fileWriterChunkData.getLength());
-//            System.out.println("saved chunk id "+chunkData.getChunkId());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -97,15 +90,12 @@ public class FileWriter implements Runnable {
         if (tempMetaDataFile.exists()) {
             var tempMetaDataDeleted = tempMetaDataFile.delete();
             if (!tempMetaDataDeleted) {
-                System.out.println("Failed temp file delete!");
-                //TODO
+                Utils.printErrorMessage("Failed to delete temp file");
             }
         }
         var metaDataDeleted = metaDataFile.delete();
         if (!metaDataDeleted) {
-            System.out.println("Failed meta file delete!");
-            //TODO
+            Utils.printErrorMessage("Failed to delete meta file");
         }
-
     }
 }

@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Random;
 
 public class Utils {
-
     public static ArrayList<String> getURLsFromFile(String fileName) {
         var urlList = new ArrayList<String>();
         try (BufferedReader bufferedReader = new BufferedReader(new FileReader(fileName))) {
@@ -18,14 +17,14 @@ public class Utils {
                 urlList.add(line);
             }
         } catch (FileNotFoundException e) {
-            System.err.println("URL file list not found!");
+            printErrorMessageWithFailure("URL file list not found!");
             return null;
         } catch (IOException e) {
-            System.err.println("Failed to read URLs from file");
+            printErrorMessageWithFailure("Failed to read URLs from file");
             return null;
         }
         if (urlList.size() == 0) {
-            System.err.println("No URLs found in file");
+            printErrorMessageWithFailure("No URLs found in file");
             return null;
         }
         return urlList;
@@ -46,7 +45,7 @@ public class Utils {
             String urlPath = url.getPath();
             return urlPath.substring(urlPath.lastIndexOf('/') + 1);
         } catch (MalformedURLException ex) {
-            //todo
+            printErrorMessageWithFailure("Failed to parse URL, please make sure the URL is in a correct format");
         }
         return null;
     }
@@ -58,9 +57,9 @@ public class Utils {
             urlConnection.connect();
             return urlConnection.getContentLength();
         } catch (MalformedURLException malformedEx) {
-            System.err.println("Failed to parse URL, please make sure the URL is in a correct format");
+            printErrorMessageWithFailure("Failed to parse URL, please make sure the URL is in a correct format");
         } catch (IOException ioEx) {
-            System.err.println("Failed to fetch file from URL, make sure the URL is correct");
+            printErrorMessageWithFailure("Failed to fetch file from URL, make sure the URL is correct");
         }
         return -1;
     }
@@ -68,5 +67,13 @@ public class Utils {
     public static String getRandomURL(ArrayList<String> URLs) {
         var rand = new Random();
         return URLs.get(rand.nextInt(URLs.size()));
+    }
+
+    public static void printErrorMessage(String message) {
+        System.err.println(message);
+    }
+    public static void printErrorMessageWithFailure(String message){
+        printErrorMessage(message);
+        System.err.println("Download failed");
     }
 }

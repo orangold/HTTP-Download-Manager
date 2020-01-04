@@ -40,7 +40,7 @@ public class IdcDm {
         if (fileName == null) {
             return;
         }
-        var randomAccessFile = getRandomAccessFile(fileName);
+        var randomAccessFile = createDownloadFile(fileName);
         if (randomAccessFile == null) {
             return;
         }
@@ -160,12 +160,11 @@ public class IdcDm {
         return list;
     }
 
-    private static RandomAccessFile getRandomAccessFile(String filename) {
+    private static RandomAccessFile createDownloadFile(String filename) {
         try {
             return new RandomAccessFile(filename, "rws");
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            //TODO
+            Utils.printErrorMessageWithFailure("Failed to create download file");
         }
         return null;
     }
@@ -195,15 +194,9 @@ public class IdcDm {
             var fileInputStream = new FileInputStream(metaDataFile);
             var objectInputStream = new ObjectInputStream(fileInputStream);
             chunkMap = (boolean[]) objectInputStream.readObject();
-        } catch (FileNotFoundException e) {
-            //TODO, PRINT TO USER
-            e.printStackTrace();
+        } catch (Exception e) {
+            Utils.printErrorMessage("Failed to fetch existing file data, restarting download..");
             return chunkMap;
-        } catch (IOException e) {
-            //TODO, PRINT TO USER
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
         }
         return chunkMap;
     }

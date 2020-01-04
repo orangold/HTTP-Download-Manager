@@ -58,9 +58,7 @@ public class HttpRangeGetter implements Runnable {
                     bufferCurrentIndex = 0;
                     currentChunkIndex++;
                 }
-//                [15] Finished downloading
                 System.out.printf("[%d] Finished downloading\n", this.Id);
-//                System.out.println("Done!");
             } catch (IOException ioEx) {
                 // TODO
             } catch (InterruptedException e) {
@@ -71,14 +69,10 @@ public class HttpRangeGetter implements Runnable {
 
     private BufferedInputStream setupConnection(RangeGetterChunksData rangeGetterChunksData) {
         try {
-            // NOTE: can request out of range and still be okay ! yay!
             var url = new URL(this.connectionString);
             var urlConnection = (HttpURLConnection) url.openConnection();
             var endByte = rangeGetterChunksData.getStartByte() + rangeGetterChunksData.getNumOfChunks() * this.chunkSize - 1;
             urlConnection.setRequestProperty("Range", String.format("bytes=%d-%d", rangeGetterChunksData.getStartByte(), endByte));
-//            [13] Start downloading range (0 - 240123903) from:
-//            http://centos.activecloud.co.il/6.10/isos/x86_64/CentOS-6.10-x86_64-netinstall.iso
-//            System.out.println("Requesting " + rangeGetterChunksData.getStartByte() + " to " + endByte);
             System.out.printf("[%d] Start downloading range (%d - %d) from:\n%s\n",
                     this.Id, rangeGetterChunksData.getStartByte(), endByte, this.connectionString);
             urlConnection.connect();
