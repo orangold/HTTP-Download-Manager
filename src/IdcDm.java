@@ -59,7 +59,7 @@ public class IdcDm {
         fileWriter.start();
     }
 
-    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
+    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
         if (existingChunksDataList == null || existingChunksDataList.size() == 0) {
             startNewDownload(threadCount, fileSize, currentURL, urlsList, blockingQueue);
         } else {
@@ -72,7 +72,7 @@ public class IdcDm {
         }
     }
 
-    private static void startNewDownload(int threadCount, int fileSize, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue) {
+    private static void startNewDownload(int threadCount, int fileSize, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue) {
         printDownloading(threadCount);
         long currentByte = 0;
         var chunkBaseIndex = 0;
@@ -95,7 +95,7 @@ public class IdcDm {
         }
     }
 
-    private static void resumeExistingDownload(ArrayList<RangeGetterChunksData> existingChunksDataList, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue) {
+    private static void resumeExistingDownload(ArrayList<RangeGetterChunksData> existingChunksDataList, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue) {
         var threadCount = existingChunksDataList.size();
         printDownloading(threadCount);
         for (int i = 0; i < threadCount; i++) {
@@ -110,7 +110,7 @@ public class IdcDm {
         }
     }
 
-    private static void resumeExistingDownloadWithQueuing(int threadCount, ArrayList<RangeGetterChunksData> existingChunksDataList, String currentURL, ArrayList<String> urlsList, BlockingQueue blockingQueue) {
+    private static void resumeExistingDownloadWithQueuing(int threadCount, ArrayList<RangeGetterChunksData> existingChunksDataList, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue) {
         printDownloading(threadCount);
         var chunkBatchesPerThread = existingChunksDataList.size() / threadCount;
         var remainderBatchesToQueue = existingChunksDataList.size() % threadCount;
