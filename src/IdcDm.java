@@ -190,17 +190,16 @@ public class IdcDm {
         var metaDataFile = new File(metaDataFileName);
         var totalChunksCount = (int) Math.ceil((double) fileSize / Consts.CHUNK_SIZE);
         var chunkMap = new boolean[totalChunksCount];
-        try {
-            var fileInputStream = new FileInputStream(metaDataFile);
-            var objectInputStream = new ObjectInputStream(fileInputStream);
+        try (var fileInputStream = new FileInputStream(metaDataFile);
+             var objectInputStream = new ObjectInputStream(fileInputStream)) {
             chunkMap = (boolean[]) objectInputStream.readObject();
-        } catch (FileNotFoundException e) {
+        } catch (Exception e) { // Same behaviour for all exceptions, delete the chunk file and restart
             Utils.printErrorMessage("Failed to fetch existing file data, restarting download..");
-            return chunkMap;
-        } catch (IOException e) {
-            Utils.printErrorMessage("Failed to fetch existing file data, restarting download..");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            var success = metaDataFile.delete();
+            if (!success) {
+                Utils.printErrorMessage("Please make sure meta data file is not being used by another process");
+            }
+            return new boolean[totalChunksCount];
         }
         return chunkMap;
     }

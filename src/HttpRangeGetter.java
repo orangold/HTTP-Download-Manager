@@ -60,15 +60,16 @@ public class HttpRangeGetter implements Runnable {
                     currentChunkIndex++;
                 }
                 System.out.printf("[%d] Finished downloading\n", this.Id);
-                return;
             } catch (SocketTimeoutException ex) {
                 Utils.printErrorMessage(String.format("[%d] Received timeout from server, terminating..", this.Id));
+                notifyWriterOfCrashing();
             } catch (IOException ioEx) {
                 Utils.printErrorMessage(String.format("[%d] Connection lost, terminating..", this.Id));
+                notifyWriterOfCrashing();
             } catch (InterruptedException e) {
                 Utils.printErrorMessage(String.format("[%d] Interrupted, please restart the program..", this.Id));
+                notifyWriterOfCrashing();
             }
-            notifyWriterOfCrashing();
         }
     }
 
@@ -76,8 +77,8 @@ public class HttpRangeGetter implements Runnable {
         try {
             var url = new URL(this.connectionString);
             var urlConnection = (HttpURLConnection) url.openConnection();
-//            urlConnection.setConnectTimeout(Consts.SETUP_CONNECTION_TIMEOUT_MSECONDS);
-//            urlConnection.setReadTimeout(Consts.READ_TIMEOUT_MSECONDS);
+            urlConnection.setConnectTimeout(Consts.SETUP_CONNECTION_TIMEOUT_MSECONDS);
+            urlConnection.setReadTimeout(Consts.READ_TIMEOUT_MSECONDS);
             var endByte = rangeGetterChunksData.getStartByte() + rangeGetterChunksData.getNumOfChunks() * this.chunkSize - 1;
             urlConnection.setRequestProperty("Range", String.format("bytes=%d-%d", rangeGetterChunksData.getStartByte(), endByte));
             System.out.printf("[%d] Start downloading range (%d - %d) from:\n%s\n",

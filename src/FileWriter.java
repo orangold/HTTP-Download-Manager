@@ -11,6 +11,8 @@ public class FileWriter implements Runnable {
     private int totalChunks, totalChunksNeededDownload;
     private int currentProgress = 0;
 
+    private File metaDataFile, tempMetaDataFile;
+
     public FileWriter(BlockingQueue<FileWriterChunkData> blockingQueue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String fileName, String metaDataFileName, String metaDataTempFileName, int totalChunks, int totalChunksNeededDownload) {
         this.blockingQueue = blockingQueue;
         this.randomAccessFile = randomAccessFile;
@@ -20,6 +22,9 @@ public class FileWriter implements Runnable {
         this.metaDataTempFileName = metaDataTempFileName;
         this.totalChunks = totalChunks;
         this.totalChunksNeededDownload = totalChunksNeededDownload;
+
+        this.metaDataFile = new File(this.metaDataFileName);
+        this.tempMetaDataFile = new File(this.metaDataTempFileName);
     }
 
     @Override
@@ -34,7 +39,6 @@ public class FileWriter implements Runnable {
                     return;
                 }
                 chunksRead++;
-                printProgress(chunksRead);
                 saveChunkToDownloadFile(chunk);
                 updateChunkMap(chunk);
                 var saveMetadataToDisc = chunksRead % Consts.SAVE_METADATA_PER_CHUNKS_COUNT == Consts.SAVE_METADATA_PER_CHUNKS_COUNT - 1;
@@ -45,6 +49,7 @@ public class FileWriter implements Runnable {
                     onDownloadFinished();
                     break;
                 }
+                printProgress(chunksRead);
             }
         } catch (InterruptedException e) {
             Utils.printErrorMessageWithFailure("Download writing interrupted, please restart download manager");
@@ -61,13 +66,12 @@ public class FileWriter implements Runnable {
 
     private void saveChunkBitMapToFile() {
         //TODO: maybe keep this open at all times, only close at the end..?
-        var metaDataFile = new File(this.metaDataFileName);
-        var tempMetaDataFile = new File(this.metaDataTempFileName);
         try (var fileOutputStream = new FileOutputStream(tempMetaDataFile);
              var objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
             objectOutputStream.writeObject(this.chunkBitMap);
-            Files.copy(tempMetaDataFile.toPath(), metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(this.tempMetaDataFile.toPath(), this.metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
+            //TODO
             System.out.println(e.getMessage());
             Utils.printErrorMessage("Failed to save download metadata, retrying..");
         }
@@ -75,7 +79,12 @@ public class FileWriter implements Runnable {
 
     private void onDownloadFinished() {
         System.out.println("Download succeeded");
-        deleteTempFiles();
+        try {
+            this.randomAccessFile.close();
+        } catch (IOException e) {
+            Utils.printErrorMessage("Failed to close connection with the file downloaded.\nIf you cannot access the file, wait a few minutes or restart your computer");
+        }
+        deleteTempMetadataFiles();
     }
 
     private void updateChunkMap(FileWriterChunkData fileWriterChunkData) {
@@ -91,18 +100,18 @@ public class FileWriter implements Runnable {
         }
     }
 
-    private void deleteTempFiles() {
-        var metaDataFile = new File(this.metaDataFileName);
-        var tempMetaDataFile = new File(this.metaDataTempFileName);
-        if (tempMetaDataFile.exists()) {
-            var tempMetaDataDeleted = tempMetaDataFile.delete();
+    private void deleteTempMetadataFiles() {
+        if (this.tempMetaDataFile.exists()) {
+            var tempMetaDataDeleted = this.tempMetaDataFile.delete();
             if (!tempMetaDataDeleted) {
                 Utils.printErrorMessage("Failed to delete temp file");
             }
         }
-        var metaDataDeleted = metaDataFile.delete();
-        if (!metaDataDeleted) {
-            Utils.printErrorMessage("Failed to delete meta file");
+        if (this.metaDataFile.exists()) {
+            var metaDataDeleted = this.metaDataFile.delete();
+            if (!metaDataDeleted) {
+                Utils.printErrorMessage("Failed to delete meta file");
+            }
         }
     }
 }
