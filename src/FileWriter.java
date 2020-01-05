@@ -65,14 +65,11 @@ public class FileWriter implements Runnable {
     }
 
     private void saveChunkBitMapToFile() {
-        //TODO: maybe keep this open at all times, only close at the end..?
         try (var fileOutputStream = new FileOutputStream(tempMetaDataFile);
              var objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
             objectOutputStream.writeObject(this.chunkBitMap);
             Files.copy(this.tempMetaDataFile.toPath(), this.metaDataFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            //TODO
-            System.out.println(e.getMessage());
             Utils.printErrorMessage("Failed to save download metadata, retrying..");
         }
     }

@@ -4,8 +4,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 public class IdcDm {
-    //TODO: what if one thread finishes before the rest and then we stop ?
-    //TODO: test mirroring and url file
     public static void main(String[] args) {
         if (args.length == 0) {
             System.err.println("usage: java IdcDm URL|URL-LIST-FILE [MAX-CONCURRENT-CONNECTIONS]");
