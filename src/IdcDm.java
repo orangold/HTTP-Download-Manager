@@ -3,9 +3,6 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-//TODO: limit thread number
-//TODO: maybe limit small size to download (stop at 99%) - BUGISM
-//TODO: test higher to smaller to higher number of threads.
 public class IdcDm {
     public static void main(String[] args) {
         if (args.length == 0) {
@@ -70,7 +67,7 @@ public class IdcDm {
         }
 
         if (threadCount > 1 && remaningFileSize < Consts.MIN_FILE_SIZE_FOR_MULTI_THREADING_IN_BYTES) {
-            System.out.println("File size to download is too small for multiple connections. Starting 1 connection..");
+            System.out.println("File size to download is too small for multiple connections (<1 MB). Starting 1 connection..");
             threadCount = 1;
         }
 
