@@ -51,11 +51,11 @@ public class IdcDm {
         var existingChunkMap = doesChunkMapExist(metaDataFileName);
         var chunkBitMap = existingChunkMap ? getChunkMapFromFile(fileSize, metaDataFileName) : createNewChunkMap(fileSize);
         var existingChunksDataList = existingChunkMap ? generateRangeGettersList(chunkBitMap) : null;
-        var remaningFileSize = existingChunkMap ? caluclateRemainingFileSize(existingChunksDataList): fileSize;
+        var remainingFileSize = existingChunkMap ? caluclateRemainingFileSize(existingChunksDataList): fileSize;
         var totalChunks = (int) Math.ceil((double) fileSize / Consts.CHUNK_SIZE);
         var totalChunksToDownload = existingChunkMap ? getChunksCountNeeded(existingChunksDataList) : totalChunks;
         startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName, metaDataFileName, metaDataTempFileName, totalChunks, totalChunksToDownload);
-        startRangeGetters(fileSize, remaningFileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
+        startRangeGetters(fileSize, remainingFileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
     }
 
     private static void startFileWriter(BlockingQueue<FileWriterChunkData> queue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String filename, String metaDataFileName, String metaDataTempFileName, int totalChunks, int totalChunksToDownload) {
@@ -64,6 +64,11 @@ public class IdcDm {
     }
 
     private static void startRangeGetters(int fileSize, int remaningFileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
+        if (threadCount > Consts.MAX_THREADS_AVAILABLE) {
+            System.out.println("Maximum number of multiple connections is 15..");
+            threadCount = Consts.MAX_THREADS_AVAILABLE;
+        }
+
         if (threadCount > 1 && remaningFileSize < Consts.MIN_FILE_SIZE_FOR_MULTI_THREADING_IN_BYTES) {
             System.out.println("File size to download is too small for multiple connections. Starting 1 connection..");
             threadCount = 1;
