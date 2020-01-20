@@ -3,6 +3,9 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+//TODO: limit thread number
+// TODO: maybe limit small size to download (stop at 99%)
+//TODO: test higher to smaller to higher number of threads.
 public class IdcDm {
     public static void main(String[] args) {
         if (args.length == 0) {
@@ -65,7 +68,7 @@ public class IdcDm {
         } else {
             var noNeedForQueuing = threadCount >= existingChunksDataList.size();
             if (noNeedForQueuing) {
-                resumeExistingDownload(existingChunksDataList, currentURL, urlsList, blockingQueue);
+                resumeExistingDownload(existingChunksDataList, threadCount ,currentURL, urlsList, blockingQueue);
             } else {
                 resumeExistingDownloadWithQueuing(threadCount, existingChunksDataList, currentURL, urlsList, blockingQueue);
             }
@@ -95,8 +98,11 @@ public class IdcDm {
         }
     }
 
-    private static void resumeExistingDownload(ArrayList<RangeGetterChunksData> existingChunksDataList, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue) {
-        var threadCount = existingChunksDataList.size();
+    private static void resumeExistingDownload(ArrayList<RangeGetterChunksData> existingChunksDataList, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue) {
+        if(threadCount > existingChunksDataList.size())
+        {
+            existingChunksDataList = splitDataToMoreThreads(existingChunksDataList, threadCount);
+        }
         printDownloading(threadCount);
         for (int i = 0; i < threadCount; i++) {
             var rangeGetterChunkData = existingChunksDataList.get(i);
@@ -131,6 +137,41 @@ public class IdcDm {
             }
         }
     }
+
+
+    private static ArrayList<RangeGetterChunksData> splitDataToMoreThreads(ArrayList<RangeGetterChunksData> existingChunksDataList, int newThreadCount) {
+        var currentSize = existingChunksDataList.size();
+        var newGettersList = new ArrayList<RangeGetterChunksData>();
+        var threadsPerComponent = newThreadCount / currentSize;
+        var leftOvers = newThreadCount % currentSize;
+        for (int i = 0; i < currentSize; i++) {
+            if (i == currentSize - 1) {
+                threadsPerComponent += leftOvers;
+            }
+            newGettersList.addAll(splitRangeGetterDataToPieces(existingChunksDataList.get(i), threadsPerComponent));
+        }
+        return newGettersList;
+    }
+
+    private static ArrayList<RangeGetterChunksData> splitRangeGetterDataToPieces(RangeGetterChunksData data, int piecesCount) {
+        var rangeGetterList = new ArrayList<RangeGetterChunksData>();
+        var numOfChunks = data.getNumOfChunks();
+        var chunksPerGetter = numOfChunks / piecesCount;
+        var leftOvers = numOfChunks % piecesCount;
+        var currentByte = data.getStartByte();
+        var chunkBaseIndex = data.getStartChunkId();
+        for (int i = 0; i < piecesCount; i++) {
+            if (i == piecesCount - 1) {
+                chunksPerGetter += leftOvers;
+            }
+            var rangeGetterChunkData = new RangeGetterChunksData(currentByte, chunksPerGetter, chunkBaseIndex);
+            rangeGetterList.add(rangeGetterChunkData);
+            currentByte += chunksPerGetter * Consts.CHUNK_SIZE;
+            chunkBaseIndex += chunksPerGetter;
+        }
+        return rangeGetterList;
+    }
+
 
     private static ArrayList<RangeGetterChunksData> generateRangeGettersList(boolean[] chunkMap) {
         var list = new ArrayList<RangeGetterChunksData>();
