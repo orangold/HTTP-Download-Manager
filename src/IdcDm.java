@@ -4,7 +4,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 //TODO: limit thread number
-// TODO: maybe limit small size to download (stop at 99%)
+//TODO: maybe limit small size to download (stop at 99%) - BUGISM
 //TODO: test higher to smaller to higher number of threads.
 public class IdcDm {
     public static void main(String[] args) {
@@ -51,10 +51,11 @@ public class IdcDm {
         var existingChunkMap = doesChunkMapExist(metaDataFileName);
         var chunkBitMap = existingChunkMap ? getChunkMapFromFile(fileSize, metaDataFileName) : createNewChunkMap(fileSize);
         var existingChunksDataList = existingChunkMap ? generateRangeGettersList(chunkBitMap) : null;
+        var remaningFileSize = existingChunkMap ? caluclateRemainingFileSize(existingChunksDataList): fileSize;
         var totalChunks = (int) Math.ceil((double) fileSize / Consts.CHUNK_SIZE);
         var totalChunksToDownload = existingChunkMap ? getChunksCountNeeded(existingChunksDataList) : totalChunks;
         startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName, metaDataFileName, metaDataTempFileName, totalChunks, totalChunksToDownload);
-        startRangeGetters(fileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
+        startRangeGetters(fileSize, remaningFileSize, threadCount, currentURL, urlsList, blockingQueue, existingChunksDataList);
     }
 
     private static void startFileWriter(BlockingQueue<FileWriterChunkData> queue, RandomAccessFile randomAccessFile, boolean[] chunkBitMap, String filename, String metaDataFileName, String metaDataTempFileName, int totalChunks, int totalChunksToDownload) {
@@ -62,17 +63,24 @@ public class IdcDm {
         fileWriter.start();
     }
 
-    private static void startRangeGetters(int fileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
+    private static void startRangeGetters(int fileSize, int remaningFileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
+        if (threadCount > 1 && remaningFileSize < Consts.MIN_FILE_SIZE_FOR_MULTI_THREADING_IN_BYTES) {
+            System.out.println("File size to download is too small for multiple connections. Starting 1 connection..");
+            threadCount = 1;
+        }
+
         if (existingChunksDataList == null || existingChunksDataList.size() == 0) {
             startNewDownload(threadCount, fileSize, currentURL, urlsList, blockingQueue);
-        } else {
-            var noNeedForQueuing = threadCount >= existingChunksDataList.size();
-            if (noNeedForQueuing) {
-                resumeExistingDownload(existingChunksDataList, threadCount ,currentURL, urlsList, blockingQueue);
-            } else {
-                resumeExistingDownloadWithQueuing(threadCount, existingChunksDataList, currentURL, urlsList, blockingQueue);
-            }
+            return;
         }
+
+        var noNeedForQueuing = threadCount >= existingChunksDataList.size();
+        if (noNeedForQueuing) {
+            resumeExistingDownload(existingChunksDataList, threadCount, currentURL, urlsList, blockingQueue);
+            return;
+        }
+
+        resumeExistingDownloadWithQueuing(threadCount, existingChunksDataList, currentURL, urlsList, blockingQueue);
     }
 
     private static void startNewDownload(int threadCount, int fileSize, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue) {
@@ -241,6 +249,14 @@ public class IdcDm {
             return new boolean[totalChunksCount];
         }
         return chunkMap;
+    }
+
+    private static int caluclateRemainingFileSize(ArrayList<RangeGetterChunksData> existingChunkMap) {
+        var currentChunks = 0;
+        for (int i = 0; i < existingChunkMap.size(); i++) {
+            currentChunks += existingChunkMap.get(i).getNumOfChunks();
+        }
+        return currentChunks * Consts.CHUNK_SIZE;
     }
 
     private static boolean[] createNewChunkMap(int fileSize) {
