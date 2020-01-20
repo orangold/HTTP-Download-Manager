@@ -48,7 +48,7 @@ public class IdcDm {
         var existingChunkMap = doesChunkMapExist(metaDataFileName);
         var chunkBitMap = existingChunkMap ? getChunkMapFromFile(fileSize, metaDataFileName) : createNewChunkMap(fileSize);
         var existingChunksDataList = existingChunkMap ? generateRangeGettersList(chunkBitMap) : null;
-        var remainingFileSize = existingChunkMap ? caluclateRemainingFileSize(existingChunksDataList): fileSize;
+        var remainingFileSize = existingChunkMap ? calculateRemainingFileSize(existingChunksDataList): fileSize;
         var totalChunks = (int) Math.ceil((double) fileSize / Consts.CHUNK_SIZE);
         var totalChunksToDownload = existingChunkMap ? getChunksCountNeeded(existingChunksDataList) : totalChunks;
         startFileWriter(blockingQueue, randomAccessFile, chunkBitMap, fileName, metaDataFileName, metaDataTempFileName, totalChunks, totalChunksToDownload);
@@ -234,7 +234,6 @@ public class IdcDm {
         return count;
     }
 
-    // Attempts to read from existing file, if not creates a new one.
     private static boolean[] getChunkMapFromFile(int fileSize, String metaDataFileName) {
         var metaDataFile = new File(metaDataFileName);
         var totalChunksCount = (int) Math.ceil((double) fileSize / Consts.CHUNK_SIZE);
@@ -253,7 +252,7 @@ public class IdcDm {
         return chunkMap;
     }
 
-    private static int caluclateRemainingFileSize(ArrayList<RangeGetterChunksData> existingChunkMap) {
+    private static int calculateRemainingFileSize(ArrayList<RangeGetterChunksData> existingChunkMap) {
         var currentChunks = 0;
         for (int i = 0; i < existingChunkMap.size(); i++) {
             currentChunks += existingChunkMap.get(i).getNumOfChunks();
