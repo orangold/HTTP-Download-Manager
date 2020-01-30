@@ -61,11 +61,6 @@ public class IdcDm {
     }
 
     private static void startRangeGetters(int fileSize, int remaningFileSize, int threadCount, String currentURL, ArrayList<String> urlsList, BlockingQueue<FileWriterChunkData> blockingQueue, ArrayList<RangeGetterChunksData> existingChunksDataList) {
-        if (threadCount > Consts.MAX_THREADS_AVAILABLE) {
-            System.out.println("Maximum number of multiple connections is 15..");
-            threadCount = Consts.MAX_THREADS_AVAILABLE;
-        }
-
         if (threadCount > 1 && remaningFileSize < Consts.MIN_FILE_SIZE_FOR_MULTI_THREADING_IN_BYTES) {
             System.out.println("File size to download is too small for multiple connections (<1 MB). Starting 1 connection..");
             threadCount = 1;

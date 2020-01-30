@@ -10,5 +10,4 @@ public class Consts
     public static int MAX_CONNECTION_RETRIES = 3;
     public static int SAVE_METADATA_PER_CHUNKS_COUNT = 32;
     public static int MIN_FILE_SIZE_FOR_MULTI_THREADING_IN_BYTES = 1000000; // 1MB
-    public static int MAX_THREADS_AVAILABLE = 15;
 }
